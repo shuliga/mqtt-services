@@ -18,6 +18,7 @@
 
 import os
 import sys
+import argparse
 import paho.mqtt.client as mqtt
 from datetime import timedelta
 from aggregator import Aggregator
@@ -33,8 +34,11 @@ mqtt_pass = os.environ['MQTT_PASS']
 mqtt_host = os.environ['MQTT_HOST']
 mqtt_port = int(os.environ['MQTT_PORT'])
 
-interval_minutes = sys.argv[1] if sys.argv[1] else 15
-recent_size = sys.argv[2] if sys.argv[2] else 96
+parser = argparse.ArgumentParser(description='Lightweight MQTT topic aggregator')
+parser.add_argument('-m', type=int, default=15, dest='mins', help='Aggregation interval in minutes')
+parser.add_argument('-s', type=int, default=96, dest='size', help='Maximum size of recently aggregated data')
+
+args_space = parser.parse_args()
 
 
 def extract_key_parts(path_array):
@@ -106,9 +110,9 @@ def table_size():
     return sum(map(len, aggregate_table.values()))
 
 
-agg = Aggregator(aggregate_table, recent_size, timedelta(minutes=interval_minutes), on_update=publish_table)
+agg = Aggregator(aggregate_table, args_space.size, timedelta(minutes=args_space.mins), on_update=publish_table)
 
-print "Started aggregator '{}' every {} min, recent {} items".format(agg.reducer_name, interval_minutes, recent_size)
+print "Started aggregator '{}' every {} min, recent {} items".format(agg.reducer_name, args_space.mins, args_space.size)
 
 
 try:

@@ -20,7 +20,6 @@ class Aggregator:
         self.on_update = on_update
         self.reducer = Aggregator.reduce_avg if not reducer else reducer
         self.reducer_name = "avg"
-        print "Aggregator initiated on '{}'".format(self.get_path())
 
     def get_path(self):
         return "/".join([Aggregator.NAME, self.reducer_name, self.get_interval_name(), self.get_span_name()])
