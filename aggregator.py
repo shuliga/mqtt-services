@@ -48,7 +48,7 @@ class Aggregator:
             for key in self.table.keys():
                 self.table.setdefault(key, {})[datetime.now()] = self.__reduce_buffer__(key)
                 if len(self.table[key]) > self.size:
-                    self.table.pop(min(self.table))
+                    self.table[key].pop(min(self.table[key]))
             if self.on_update:
                 self.on_update()
 
