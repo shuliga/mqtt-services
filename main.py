@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2007 Google Inc.
+# Copyright 2020 SHL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@
 #
 
 import os
-import sys
+import time
 import argparse
 import paho.mqtt.client as mqtt
 from datetime import timedelta
 from aggregator import Aggregator
 
-SUB_TOPIC = "rent/+/+/+/status/banner/0"
-SUB_TOPIC_KEY_IDX = (min(loc for loc, val in enumerate(SUB_TOPIC.split("/")) if val == "+"), max(loc for loc, val in enumerate(SUB_TOPIC.split("/")) if val == "+"))
 
 mqtt_table = {}
 aggregate_table = {}
@@ -35,10 +33,14 @@ mqtt_host = os.environ['MQTT_HOST']
 mqtt_port = int(os.environ['MQTT_PORT'])
 
 parser = argparse.ArgumentParser(description='Lightweight MQTT topic aggregator')
-parser.add_argument('-m', type=int, default=15, dest='mins', help='Aggregation interval in minutes')
-parser.add_argument('-s', type=int, default=96, dest='size', help='Maximum size of recently aggregated data')
+parser.add_argument('-m', type=int, default=15, dest='mins', help='Aggregation interval in minutes.')
+parser.add_argument('-r', type=int, default=96, dest='size', help='Maximum size of recently aggregated data.')
+parser.add_argument('-p', type=str, default=None, dest='pub_prefix', help='Published MQTT topic prefix. If not set, Subscribed topic will be used as prefix.')
+parser.add_argument('-s', type=str, default="rent/+/+/+/status/banner/0", dest='sub_topic', help='MQTT topic to subscribe on and aggregate.')
 
 args_space = parser.parse_args()
+
+SUB_TOPIC_KEY_IDX = (min(loc for loc, val in enumerate(args_space.sub_topic.split("/")) if val == "+"), max(loc for loc, val in enumerate(args_space.sub_topic.split("/")) if val == "+"))
 
 
 def extract_key_parts(path_array):
@@ -50,8 +52,8 @@ def extract_key_parts(path_array):
 
 def on_connect(mqtt_client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
-    mqtt_client.subscribe(SUB_TOPIC)
-    print("Subscribed to: "+SUB_TOPIC)
+    mqtt_client.subscribe(args_space.sub_topic)
+    print("Subscribed to: "+args_space.sub_topic)
 
 
 def on_message(mqtt_client, userdata, msg):
@@ -79,11 +81,11 @@ def publish_table():
 
 
 def get_pub_topic(key):
-    topic_path = SUB_TOPIC.split("/")
+    topic_path = args_space.sub_topic.split("/")
     key_path = key.split("/")
     for i in range(SUB_TOPIC_KEY_IDX[0], SUB_TOPIC_KEY_IDX[1] + 1):
         topic_path[i] = key_path[i - SUB_TOPIC_KEY_IDX[0]]
-    return "/".join(topic_path + [agg.get_path()])
+    return "/".join(([args_space.pub_prefix] if args_space.pub_prefix else topic_path) + [agg.get_path()])
 
 
 def print_table(_key):
@@ -113,12 +115,14 @@ def table_size():
 agg = Aggregator(aggregate_table, args_space.size, timedelta(minutes=args_space.mins), on_update=publish_table)
 
 print "Started aggregator '{}' every {} min, recent {} items".format(agg.reducer_name, args_space.mins, args_space.size)
-
+if args_space.pub_prefix:
+    print "MQTT Publish topic prefix is overridden to '{}'".format(args_space.pub_prefix)
 
 try:
     al = table_size()
     while True:
         client.loop()
         agg.loop()
+        time.sleep(0.1)
 except KeyboardInterrupt:
     pass
