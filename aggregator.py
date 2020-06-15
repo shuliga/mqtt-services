@@ -43,10 +43,11 @@ class Aggregator:
         self.loop()
 
     def loop(self):
-        if datetime.now() - self.initiated >= self.timedelta:
-            self.initiated = datetime.now()
+        now = datetime.now()
+        if now - self.initiated >= self.timedelta:
+            self.initiated = now
             for key in self.table.keys():
-                self.table.setdefault(key, {})[datetime.now()] = self.__reduce_buffer__(key)
+                self.table.setdefault(key, {})[now] = self.__reduce_buffer__(key)
                 if len(self.table[key]) > self.size:
                     self.table[key].pop(min(self.table[key]))
             if self.on_update:
@@ -56,7 +57,7 @@ class Aggregator:
         self.on_update = func
 
     def __reduce_buffer__(self, key):
-        if len(self.buffer) > 0:
+        if len(self.buffer[key]) > 0:
             rec_avg = Aggregator.reduce_avg(self.buffer[key])
             del self.buffer[key][:]
             return rec_avg
