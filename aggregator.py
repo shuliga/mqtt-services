@@ -3,26 +3,41 @@ from datetime import datetime
 from datetime import timedelta
 
 
-class Aggregator:
+class TimeWindowAggregator:
 
-    NAME = "agg"
+    NAME = "time-window"
 
     @staticmethod
     def reduce_avg(tuples_list):
         return tuple(np.array(map(sum, zip(*tuples_list))) / len(tuples_list))
 
-    def __init__(self, table, size=48, t_delta=timedelta(hours=1), on_update=None, reducer=None):
-        self.table = table
+    @staticmethod
+    def reduce_max(tuples_list):
+        return tuple(np.array(map(max, zip(*tuples_list))))
+
+    @staticmethod
+    def reduce_min(tuples_list):
+        return tuple(np.array(map(min, zip(*tuples_list))))
+
+    @staticmethod
+    def reduce_count(tuples_list):
+        return tuple(np.array(map(len, zip(*tuples_list))))
+
+    def __init__(self, sub_topic, size=48, t_delta=timedelta(hours=1), on_update=None, reducer=None):
+        self.table = {}
+        self.sub_topic = sub_topic
         self.timedelta = t_delta
         self.size = size
         self.initiated = datetime.now()
         self.buffer = {}
         self.on_update = on_update
-        self.reducer = Aggregator.reduce_avg if not reducer else reducer
+        self.reducer = TimeWindowAggregator.reduce_avg if not reducer else reducer
         self.reducer_name = "avg"
+        print "Started aggregator '{}' with '{}' reducer every {}, recent {} items".format(TimeWindowAggregator.NAME, self.reducer_name,
+                                                                             self.timedelta, self.size)
 
     def get_path(self):
-        return "/".join([Aggregator.NAME, self.reducer_name, self.get_interval_name(), self.get_span_name()])
+        return "/".join([TimeWindowAggregator.NAME, self.reducer_name, self.get_interval_name(), self.get_span_name()])
 
     def get_interval_name(self):
         timedelta_arr = str(self.timedelta).split(",")
@@ -36,6 +51,10 @@ class Aggregator:
 
     def get_span_name(self):
         return "" if self.size <= 1 else "recent-{}".format(self.size)
+
+    def reload_table(self, key, new_data):
+        self.buffer[key].clear()
+        self.table[key] = new_data
 
     def put(self, key, values):
         self.buffer.setdefault(key, []).append(values)
@@ -51,14 +70,14 @@ class Aggregator:
                 if len(self.table[key]) > self.size:
                     self.table[key].pop(min(self.table[key]))
             if self.on_update:
-                self.on_update()
+                self.on_update(self.table, self.sub_topic, self.get_path())
 
     def on_update(self, func):
         self.on_update = func
 
     def __reduce_buffer__(self, key):
         if len(self.buffer[key]) > 0:
-            rec_avg = Aggregator.reduce_avg(self.buffer[key])
+            rec_avg = TimeWindowAggregator.reduce_avg(self.buffer[key])
             del self.buffer[key][:]
             return rec_avg
         else:
