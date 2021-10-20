@@ -7,13 +7,10 @@ import paho.mqtt.client as mqtt
 import requests
 from datetime import datetime, timedelta
 from functools import reduce
-
+from pytz import timezone
 from requests import HTTPError
 
 DATE_FMT = "%Y-%m-%dT%H:%M"
-
-today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-tomorrow = today + timedelta(days=1)
 
 
 def get_params(when):
@@ -127,6 +124,8 @@ def get_booked_rooms(account, receiver, when):
 
 def prepare_rooms(account, receiver):
     all = properties["accounts"][account]["room-mappings"].keys()
+    today = datetime.now(tz=timezone(properties["timezone"])).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
     todays = get_booked_rooms(account, receiver, today)
     tomorrows = get_booked_rooms(account, receiver, tomorrow)
     return dict(map(lambda room: (room, {"datetime": str(today), "status": "CHECKED-IN" if room in todays and room in tomorrows else "CHECKED-END" if room in todays else "CHECKING-TOMORROW" if room in tomorrows else "VACANT"}),

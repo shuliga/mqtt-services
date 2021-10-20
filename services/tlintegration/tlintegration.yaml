@@ -1,4 +1,5 @@
 base-url: https://partner.tlintegration.com/api/webpms/v1/
+timezone: Europe/Kiev
 accounts:
   rybak:
       api-key: 1fa43fe1-e958-471a-a812-192cab88a477
