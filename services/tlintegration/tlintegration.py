@@ -133,8 +133,8 @@ def prepare_rooms(account, receiver):
     tomorrow_noon = tomorrow_start.replace(hour=14)
     tomorrow_night = tomorrow_start.replace(hour=23, minute=59)
 
-    today_morning_rooms = get_booked_rooms(account, receiver, today_start, today_morning)
-    today_noon_rooms = get_booked_rooms(account, receiver, today_morning, today_noon)
+    today_morning_rooms = get_booked_rooms(account, receiver, today_start, today_morning - timedelta(minutes=1))
+    today_noon_rooms = get_booked_rooms(account, receiver, today_morning + timedelta(minutes=30), today_noon - timedelta(minutes=1))
     today_night_rooms = get_booked_rooms(account, receiver, today_noon, today_night)
 
     tomorrow_night_rooms = get_booked_rooms(account, receiver, tomorrow_noon, tomorrow_night)
