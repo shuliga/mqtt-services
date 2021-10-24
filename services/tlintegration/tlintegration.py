@@ -13,10 +13,10 @@ from requests import HTTPError
 DATE_FMT = "%Y-%m-%dT%H:%M"
 
 
-def get_params(when):
+def get_params(when, till):
     return {"findBookingsDto.state": "Active",
             "findBookingsDto.affectsPeriodFrom": when.strftime(DATE_FMT),
-            "findBookingsDto.affectsPeriodTo": when.replace(hour=23, minute=59).strftime(DATE_FMT)
+            "findBookingsDto.affectsPeriodTo": till.strftime(DATE_FMT)
             }
 
 
@@ -51,8 +51,8 @@ class HttpReceiver:
         else:
             raise HTTPError("HTTP Error: {} \n {}".format(str(resp.status_code), resp.url))
 
-    def get_bookings(self, account, when):
-        return self.api_call(account, "bookings", lambda data: data["bookingNumbers"], get_params(when))
+    def get_bookings(self, account, when, till):
+        return self.api_call(account, "bookings", lambda data: data["bookingNumbers"], get_params(when, till))
 
     def get_booking_info(self, booking_number, account):
         return self.api_call(account, "bookings/{}".format(booking_number),
@@ -117,19 +117,45 @@ class MqttSender:
             print "Published to {}, payload: {}".format(topic, json.dumps(rooms[room]))
 
 
-def get_booked_rooms(account, receiver, when):
+def get_booked_rooms(account, receiver, when, till):
     return map(lambda bn: reduce(lambda a, b: a + b, receiver.get_booking_info(bn, account)),
-        receiver.get_bookings(account, when))
+        receiver.get_bookings(account, when, till))
 
 
 def prepare_rooms(account, receiver):
-    all = properties["accounts"][account]["room-mappings"].keys()
-    today = datetime.now(tz=timezone(properties["timezone"])).replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow = today + timedelta(days=1)
-    todays = get_booked_rooms(account, receiver, today)
-    tomorrows = get_booked_rooms(account, receiver, tomorrow)
-    return dict(map(lambda room: (room, {"datetime": str(today), "status": "CHECKED-IN" if room in todays and room in tomorrows else "CHECKED-END" if room in todays else "CHECKING-TOMORROW" if room in tomorrows else "VACANT"}),
-               all))
+    all_rooms = properties["accounts"][account]["room-mappings"].keys()
+
+    today_start = datetime.now(tz=timezone(properties["timezone"])).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_morning = today_start.replace(hour=12)
+    today_noon = today_start.replace(hour=14)
+    today_night = today_start.replace(hour=23, minute=59)
+    tomorrow_start = today_start + timedelta(days=1)
+    tomorrow_noon = tomorrow_start.replace(hour=14)
+    tomorrow_night = tomorrow_start.replace(hour=23, minute=59)
+
+    today_morning_rooms = get_booked_rooms(account, receiver, today_start, today_morning)
+    today_noon_rooms = get_booked_rooms(account, receiver, today_morning, today_noon)
+    today_night_rooms = get_booked_rooms(account, receiver, today_noon, today_night)
+
+    tomorrow_night_rooms = get_booked_rooms(account, receiver, tomorrow_noon, tomorrow_night)
+
+    return dict(map(lambda room: (room, {"datetime": str(today_start), "status": get_room_status(room, today_morning_rooms, today_noon_rooms, today_night_rooms, tomorrow_night_rooms)}),
+               all_rooms))
+
+
+def get_room_status(room, today_mornings, today_noons, today_evenings, tomorrow_evenings):
+    if room not in today_mornings and room not in today_noons and room not in today_evenings and room in tomorrow_evenings:
+        return "CHECKING-TOMORROW"
+    if room not in today_mornings and room not in today_noons and room in today_evenings:
+        return "CHECKING-TODAY"
+    if room in today_noons and room in today_evenings:
+        return "CHECKED-IN"
+    if room in today_mornings and room not in today_noons and room not in today_evenings:
+        return "CHECK-END"
+    if room in today_mornings and room not in today_noons and room in today_evenings:
+        return "CHECK-IN-OUT"
+    if room not in today_mornings and room not in today_noons and room not in today_evenings:
+        return "VACANT"
 
 
 def process_rooms(accounts, receiver, publisher):
