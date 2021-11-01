@@ -127,10 +127,10 @@ def prepare_rooms(account, receiver):
 
     today_start = datetime.now(tz=timezone(properties["timezone"])).replace(hour=0, minute=0, second=0, microsecond=0)
     today_morning = today_start.replace(hour=12)
-    today_noon = today_start.replace(hour=14)
+    today_noon = today_start.replace(hour=13)
     today_night = today_start.replace(hour=23, minute=59)
     tomorrow_start = today_start + timedelta(days=1)
-    tomorrow_noon = tomorrow_start.replace(hour=14)
+    tomorrow_noon = tomorrow_start.replace(hour=13)
     tomorrow_night = tomorrow_start.replace(hour=23, minute=59)
 
     today_morning_rooms = get_booked_rooms(account, receiver, today_start, today_morning - timedelta(minutes=1))
