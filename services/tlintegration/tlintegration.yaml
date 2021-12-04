@@ -3,9 +3,7 @@ timezone: Europe/Kiev
 accounts:
   rybak:
       api-key: 1fa43fe1-e958-471a-a812-192cab88a477
-      old-api-key: 0938222b-1331-49ac-ae75-c7ccf29b9d73
       room-mappings:
-        "4503599627441724": ua-lv-79004-nv-7-4
         "4503599627389400": ua-lv-79019-pm-5-16
         "4503599627462281": ua-lv-79005-kr-16-11
         "4503599627443126": ua-lv-79005-kr-16-9
@@ -22,6 +20,5 @@ accounts:
         "4503599627389398": starojude-2
         "4503599627389406": gal-19
       old-room-mappings:
-        "4503599627479383": ua-lv-79004-nv-7-4
-        "4503599627479384": ua-lv-79019-pm-5-16
+        "4503599627441724": ua-lv-79004-nv-7-4
 
