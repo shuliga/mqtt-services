@@ -52,6 +52,7 @@ parser.add_argument('-r', type=int, default=96, dest='size', help='Maximum size 
 parser.add_argument('-p', type=str, default=None, dest='pub_prefix', help='Published MQTT topic prefix. If not set, Subscribed topic will be used as prefix.')
 parser.add_argument('-s', type=str, default="rent/+/+/+/status/banner/0", dest='sub_topic', help='MQTT topic to subscribe on and aggregate.')
 parser.add_argument('-t', type=str2bool, nargs='?', const=True, default=False, dest='output_timestamp', help='Output timestamp with each item. The resulting table will be a dictionary.')
+parser.add_argument('--dry', type=str2bool, nargs='?', const=True, default=False, dest='dry_run', help='Dry run. MQTT subscriptions remain active while responses halted.')
 
 args_space = parser.parse_args()
 
@@ -138,7 +139,10 @@ def get_key(path, sub_topic):
 def publish_table(table, sub_topic, agg_path):
     for key in table:
         pub_topic = get_pub_topic(key, sub_topic, mqtt_table[sub_topic]['prefix'], agg_path)
-        client.publish(pub_topic, payload=format_table(table[key]), qos=1, retain=True)
+        if not args_space.dry_run:
+            client.publish(pub_topic, payload=format_table(table[key]), qos=1, retain=True)
+        else:
+            print "Dry run mode:"
         print "Pub topic: {}".format(pub_topic)
         print_table(key, table)
 
@@ -203,12 +207,12 @@ def connection_test(_client):
 
 @backoff.on_predicate(backoff.fibo, max_tries=15, on_giveup=give_up, on_backoff=back_off_reconnect, max_value=800)
 def run(_client):
-    print "Aggregation process is RUNNING"
+    print "Aggregation process is RUNNING {}".format("in DRY RUN mode" if args_space.dry_run else "")
     while mqtt_flag_connected:
         _client.loop()
         for val in mqtt_table.values():
             val['aggregator'].loop()
-        time.sleep(0.1)
+        time.sleep(0.5)
     else:
         print "Aggregation process is STOPPED"
     return False
